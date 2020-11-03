@@ -1,0 +1,48 @@
+#### Estimating Road Distance ####
+
+## All the data sources are explained in the DATA folder
+
+# The packeges I will use:
+library(sp)
+library(sf)
+library(rgdal)
+library(spdep)
+library(maptools)
+library(rgeos)
+library(raster)
+
+###### Manipulating the road files:
+# Defining the diretory where the roads shapefile is:
+setwd("~/Desktop/Roads/Brazilian Roads")
+roads<-rgdal::readOGR("rodovias.shp")
+
+#I transform the shapefile into points to estimate the distance
+roads_points<-as(roads, "SpatialPointsDataFrame")
+
+#Now I transform into a sf file and set the CRS
+roads.sf<-as(roads_points, "sf")
+st_crs(roads.sf) = 4326
+
+##### Manipulating the municipalities data points that I want to get the distance from the roads
+# Here I am only estimating the distance from Mato Grosso state municipalities
+
+# Defining the diretory where the municipalities shapefile is:
+setwd("~/Desktop/Roads/mt_municipios_IBGE ")
+municipalities<-rgdal::readOGR('51MUE250GC_SIR.shp')
+
+# I will consider each municipality centroid to estimate the road distance
+mun_centers <- SpatialPointsDataFrame(gCentroid(municipalities, byid=TRUE), 
+                                      municipalities@data, match.ID=FALSE)
+
+#Creating my variable of interest "road_dist" and transforming into a sf object
+mun_centers <-as.data.frame(mun_centers)
+mun_centers$road_dist<-0
+mun_centers.sf <-  st_as_sf(mun_centers, coords = c("x", "y"), crs = 4326)
+
+
+### Loop to estimate the distance in kilometers:
+for (i in 1:nrow(mun_centers.sf)){
+  dist <- as.numeric(sf::st_distance(mun_centers.sf[i,], roads.sf))
+  mun_centers.sf[i,"road_dist"]<-min(dist)
+  remove(dist)
+}
